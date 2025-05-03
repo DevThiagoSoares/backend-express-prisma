@@ -1,19 +1,21 @@
 const express = require('express');
 const bcrypt = require('bcrypt')
+const jwt = require('jsonwebtoken')
 require('dotenv').config()
 const cors = require('cors')
 const prisma = require('./prisma/client.js')
+const auth = require('./auth.js')
 
 const app = express()
 app.use(cors())
 app.use(express.json())
 
-app.get('/', (req, res) => {
+app.get('/', auth, (req, res) => {
     res.send('Hello World!, this is my first API with Node.js!')
     }
 )
 
-app.get('/api/usuarios', async (req, res) => {
+app.get('/api/usuarios', auth, async (req, res) => {
     const usuarios = await prisma.user.findMany()
     const listUsuarios = usuarios.map(usuario => {
         return {
@@ -56,7 +58,20 @@ app.post('/api/login', async (req, res) => {
     if (!isPasswordValid) {
         return res.status(401).json({ message: 'Senha inválida' })
     }
-    res.json(usuario)
+
+
+    const token = jwt.sign({ 
+        id: usuario.id, 
+        name: usuario.name, 
+        email: usuario.email 
+    }, 
+    process.env.JWT_SECRET, 
+    {
+        algorithm: process.env.JWT_ALGORITHM, 
+        expiresIn: process.env.JWT_EXPIRES_IN,
+    }
+)
+    res.json({token})
 })
 
 app.put('/api/usuarios/:id', async (req, res) => {
