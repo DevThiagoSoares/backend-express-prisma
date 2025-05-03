@@ -1,7 +1,8 @@
 const express = require('express');
+const bcrypt = require('bcrypt')
 require('dotenv').config()
 const cors = require('cors')
-
+const prisma = require('./prisma/client.js')
 
 const app = express()
 app.use(cors())
@@ -12,7 +13,97 @@ app.get('/', (req, res) => {
     }
 )
 
-app.listen(3000, () => {   
+app.get('/api/usuarios', async (req, res) => {
+    const usuarios = await prisma.user.findMany()
+    const listUsuarios = usuarios.map(usuario => {
+        return {
+            id: usuario.id,
+            name: usuario.name,
+            email: usuario.email
+        }
+    })
+    res.json(listUsuarios)
+    }
+)
+
+app.post('/api/usuarios', async (req, res) => {
+    const { name, email, password } = req.body
+    const hashPassword = await bcrypt.hash(password, 10)
+    const usuario = await prisma.user.create({
+        data: {
+            name,
+            email,
+            password: hashPassword
+        }
+    })
+    res.json(usuario)
+    })
+
+
+app.post('/api/login', async (req, res) => {
+    const { email, password } = req.body
+    const usuario = await prisma.user.findUnique({
+        where: {
+            email
+        }
+    })
+
+    if (!usuario) {
+        return res.status(404).json({ message: 'Usuário não encontrado' })
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, usuario.password)
+    if (!isPasswordValid) {
+        return res.status(401).json({ message: 'Senha inválida' })
+    }
+    res.json(usuario)
+})
+
+app.put('/api/usuarios/:id', async (req, res) => {
+    const { id } = req.params
+    const { name, email, password } = req.body
+    const usuario = await prisma.user.update({
+        where: {
+            id
+        },
+        data: {
+            name,
+            email,
+            password
+        }
+    })
+    res.json(usuario)
+    }
+)
+
+app.delete('/api/usuarios/:id', async (req, res) => {
+    const { id } = req.params
+    const usuario = await prisma.user.delete({
+        where: {
+            id
+        }
+    })
+    res.json(usuario)
+    }  )
+
+app.get('/api/test', async (req, res) => {
+    const test = await prisma.test.findMany()
+    res.json(test)
+    }
+)
+
+app.post('/api/test', async (req, res) => {
+    const { description, name } = req.body
+    const test = await prisma.test.create({
+        data: {
+            name,
+            description
+        }
+    })
+    res.json(test)
+    }
+)
+app.listen(process.env.PORT || 3000, () => {   
 	console.log('Servidor rodando na porta 3000'); 
 	}
 );
